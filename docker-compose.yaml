@@ -1,36 +1,4 @@
-version: "3.9"
-
 services:
-  wordpress:
-    image: wordpress:latest
-    container_name: wordpress
-    restart: always
-    ports:
-      - "80:80"
-    environment:
-      WORDPRESS_DB_HOST: db:3306
-      WORDPRESS_DB_USER: wordpress
-      WORDPRESS_DB_PASSWORD: wordpress
-      WORDPRESS_DB_NAME: wordpress
-
-      # HTTPS リダイレクト対応
-      WORDPRESS_CONFIG_EXTRA: |
-        if (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
-          $_SERVER['HTTPS'] = 'on';
-        }
-        if (isset($_SERVER['HTTP_X_FORWARDED_HOST'])) {
-          $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
-        }
-
-    volumes:
-      - ./wordpress:/var/www/html
-    depends_on:
-      - db
-    command: >
-      bash -c "chown -R www-data:www-data /var/www/html &&
-               chmod -R 755 /var/www/html &&
-               apache2-foreground"
-
   db:
     image: mysql:5.7
     container_name: wordpress_db
@@ -42,18 +10,55 @@ services:
       MYSQL_ROOT_PASSWORD: root
     volumes:
       - db_data:/var/lib/mysql
+    networks:
+      - wpnet
 
-  phpmyadmin:
-    image: phpmyadmin:latest
-    container_name: phpmyadmin
+  wordpress:
+    image: wordpress:latest
+    container_name: wordpress
     restart: always
     ports:
       - "8080:80"
     environment:
-      PMA_HOST: db
-      MYSQL_ROOT_PASSWORD: root
+      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
     depends_on:
       - db
+    volumes:
+      - ./wordpress:/var/www/html
+    entrypoint: >
+      bash -c "
+        if [ ! -f /var/www/html/wp-config.php ]; then
+          echo '>>> Copying WordPress core to ./wordpress ...';
+          cp -R /usr/src/wordpress/* /var/www/html/ &&
+          cp -R /usr/src/wordpress/.[!.]* /var/www/html/ 2>/dev/null || true;
+          chown -R www-data:www-data /var/www/html;
+          chmod -R 755 /var/www/html;
+        fi;
+        exec docker-entrypoint.sh apache2-foreground
+      "
+    networks:
+      - wpnet
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin:latest
+    container_name: phpmyadmin
+    restart: always
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: db
+      PMA_USER: wordpress
+      PMA_PASSWORD: wordpress
+    depends_on:
+      - db
+    networks:
+      - wpnet
 
 volumes:
   db_data:
+
+networks:
+  wpnet:

@@ -3,22 +3,21 @@ version: '3.9'
 services:
   wordpress:
     image: wordpress:6.5-apache
-    container_name: wp
     environment:
-      WORDPRESS_DB_HOST: db:3306
+      WORDPRESS_DB_HOST: db
       WORDPRESS_DB_USER: wp
       WORDPRESS_DB_PASSWORD: wp
       WORDPRESS_DB_NAME: wp
       WORDPRESS_CONFIG_EXTRA: |
-        # Codespaces のリバースプロキシ対応
         if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
-            $_SERVER['HTTPS'] = 'on';
+          $_SERVER['HTTPS'] = 'on';
         }
+
         if (!empty($_SERVER['HTTP_X_FORWARDED_HOST'])) {
-            $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
+          $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
         }
     ports:
-      - "8080:80"
+      - "80:80"
     volumes:
       - ./wordpress:/var/www/html
       - ./init-permissions.sh:/docker-entrypoint-init.d/init-permissions.sh:ro

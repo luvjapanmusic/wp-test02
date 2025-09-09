@@ -32,6 +32,14 @@ services:
       MYSQL_PASSWORD: wp              # ← WordPress が使うパスワード
     volumes:
       - db_data:/var/lib/mysql
+      services:
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    ports:
+      - 8080:80
+    environment:
+      PMA_HOST: db # WordPressのデータベースサービス名
+      PMA_PORT: 3306 # WordPressのデータベースポート
 
 volumes:
   db_data:

@@ -16,7 +16,6 @@ services:
           $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
         }
     ports:
-    ports:
       - "80:80"
     volumes:
       - ./wordpress:/var/www/html

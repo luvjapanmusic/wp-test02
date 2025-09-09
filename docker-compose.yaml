@@ -1,64 +1,51 @@
-services:
-  db:
-    image: mysql:5.7
-    container_name: wordpress_db
-    restart: always
-    environment:
-      MYSQL_DATABASE: wordpress
-      MYSQL_USER: wordpress
-      MYSQL_PASSWORD: wordpress
-      MYSQL_ROOT_PASSWORD: root
-    volumes:
-      - db_data:/var/lib/mysql
-    networks:
-      - wpnet
+version: '3.9'
 
+services:
   wordpress:
-    image: wordpress:latest
-    container_name: wordpress
-    restart: always
-    ports:
-      - "8080:80"
+    image: wordpress:6.5-apache
+    container_name: wp
     environment:
       WORDPRESS_DB_HOST: db:3306
-      WORDPRESS_DB_USER: wordpress
-      WORDPRESS_DB_PASSWORD: wordpress
-      WORDPRESS_DB_NAME: wordpress
-    depends_on:
-      - db
+      WORDPRESS_DB_USER: wp
+      WORDPRESS_DB_PASSWORD: wp
+      WORDPRESS_DB_NAME: wp
+      WORDPRESS_CONFIG_EXTRA: |
+        # Codespaces のリバースプロキシ対応
+        if (!empty($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') {
+            $_SERVER['HTTPS'] = 'on';
+        }
+        if (!empty($_SERVER['HTTP_X_FORWARDED_HOST'])) {
+            $_SERVER['HTTP_HOST'] = $_SERVER['HTTP_X_FORWARDED_HOST'];
+        }
+    ports:
+      - "8080:80"
     volumes:
       - ./wordpress:/var/www/html
-    entrypoint: >
-      bash -c "
-        if [ ! -f /var/www/html/wp-config.php ]; then
-          echo '>>> Copying WordPress core to ./wordpress ...';
-          cp -R /usr/src/wordpress/* /var/www/html/ &&
-          cp -R /usr/src/wordpress/.[!.]* /var/www/html/ 2>/dev/null || true;
-          chown -R www-data:www-data /var/www/html;
-          chmod -R 755 /var/www/html;
-        fi;
-        exec docker-entrypoint.sh apache2-foreground
-      "
-    networks:
-      - wpnet
+      - ./init-permissions.sh:/docker-entrypoint-init.d/init-permissions.sh:ro
+    depends_on:
+      - db
+
+  db:
+    image: mysql:8.3
+    container_name: wp_db
+    environment:
+      MYSQL_RANDOM_ROOT_PASSWORD: '1'
+      MYSQL_DATABASE: wp
+      MYSQL_USER: wp
+      MYSQL_PASSWORD: wp
+    volumes:
+      - db_data:/var/lib/mysql
 
   phpmyadmin:
     image: phpmyadmin/phpmyadmin:latest
     container_name: phpmyadmin
-    restart: always
-    ports:
-      - "8081:80"
     environment:
       PMA_HOST: db
-      PMA_USER: wordpress
-      PMA_PASSWORD: wordpress
+      UPLOAD_LIMIT: 64M
+    ports:
+      - "8081:80"
     depends_on:
       - db
-    networks:
-      - wpnet
 
 volumes:
   db_data:
-
-networks:
-  wpnet:

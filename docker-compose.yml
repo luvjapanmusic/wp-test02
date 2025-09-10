@@ -19,6 +19,7 @@ services:
       - "80:80"
     volumes:
       - ./wordpress:/var/www/html
+      - ./wordpress/php.ini:/usr/local/etc/php/php.ini:ro
       - ./init-permissions.sh:/docker-entrypoint-init.d/init-permissions.sh:ro
     depends_on:
       - db

@@ -1,45 +1,38 @@
 #!/bin/bash
 set -e
 
-echo "Waiting for database to be ready..."
-until wp db check --path=/var/www/html --allow-root; do
-  sleep 5
-done
+WP_PATH=/var/www/html
 
-if ! wp core is-installed --path=/var/www/html --allow-root; then
-  echo "Installing WordPress..."
-  wp core install \
-    --url=http://localhost \
-    --title="My WordPress Site" \
-    --admin_user=admin \
-    --admin_password=password \
-    --admin_email=admin@example.com \
-    --path=/var/www/html \
-    --allow-root
+# WordPress がまだ存在しない場合にダウンロード
+if [ ! -f "$WP_PATH/wp-config.php" ]; then
+    echo "Downloading WordPress..."
+    wp core download --path="$WP_PATH"
 fi
 
-# 固定ページ Home と Blog を作成（存在しなければ）
-if ! wp post list --post_type=page --pagename=home --format=ids --path=/var/www/html --allow-root | grep -q .; then
-  wp post create --post_type=page --post_title=Home --post_status=publish --post_name=home --path=/var/www/html --allow-root
+# WordPress のセットアップ（DB接続情報は environment で自動設定）
+if ! wp core is-installed --path="$WP_PATH"; then
+    echo "Installing WordPress..."
+    wp core install \
+      --url="http://localhost" \
+      --title="My WordPress Site" \
+      --admin_user="admin" \
+      --admin_password="password" \
+      --admin_email="admin@example.com" \
+      --path="$WP_PATH"
 fi
 
-if ! wp post list --post_type=page --pagename=blog --format=ids --path=/var/www/html --allow-root | grep -q .; then
-  wp post create --post_type=page --post_title=Blog --post_status=publish --post_name=blog --path=/var/www/html --allow-root
+# Home と Blog ページ作成
+if [ $(wp post list --post_type=page --format=ids --path="$WP_PATH" | wc -l) -eq 0 ]; then
+    echo "Creating Home and Blog pages..."
+    HOME_ID=$(wp post create --post_type=page --post_title=Home --post_status=publish --post_name=home --porcelain --path="$WP_PATH")
+    BLOG_ID=$(wp post create --post_type=page --post_title=Blog --post_status=publish --post_name=blog --porcelain --path="$WP_PATH")
+    wp option update show_on_front page --path="$WP_PATH"
+    wp option update page_on_front "$HOME_ID" --path="$WP_PATH"
+    wp option update page_for_posts "$BLOG_ID" --path="$WP_PATH"
 fi
-
-# ID を取得
-HOME_ID=$(wp post list --post_type=page --pagename=home --format=ids --path=/var/www/html --allow-root)
-BLOG_ID=$(wp post list --post_type=page --pagename=blog --format=ids --path=/var/www/html --allow-root)
-
-# 表示設定
-wp option update show_on_front page --path=/var/www/html --allow-root
-wp option update page_on_front $HOME_ID --path=/var/www/html --allow-root
-wp option update page_for_posts $BLOG_ID --path=/var/www/html --allow-root
-
-# サンプルページ削除（Home, Blog は除外）
-wp post delete $(wp post list --post_type=page --format=ids --path=/var/www/html --allow-root | grep -v -E "($HOME_ID|$BLOG_ID)") --force --allow-root || true
 
 # パーマリンクを「投稿名」に設定
-wp option update permalink_structure '/%postname%/' --path=/var/www/html --allow-root
+wp rewrite structure '/%postname%/' --hard --path="$WP_PATH"
 
-echo "✅ WordPress initialization completed!"
+echo "WordPress initialization completed."
+exec "$@"

@@ -18,20 +18,9 @@ wp() {
     docker compose exec $CONTAINER_NAME wp "$@"
 }
 
-# ---------------------------
-# WordPress 未インストールなら自動インストール
-# ---------------------------
+# WordPress が未インストールなら自動インストール
 if ! wp core is-installed --allow-root; then
     echo "Installing WordPress..."
-    wp core download --locale=ja --allow-root
-    wp config create \
-        --dbname=wordpress \
-        --dbuser=root \
-        --dbpass=root \
-        --dbhost=mysql \
-        --dbprefix=wp_ \
-        --locale=ja \
-        --allow-root
     wp core install \
         --url="$WP_URL" \
         --title="My Site" \
@@ -40,40 +29,33 @@ if ! wp core is-installed --allow-root; then
         --admin_email="admin@example.com" \
         --skip-email \
         --allow-root
+
+    # 日本語に設定
+    wp language core install ja --activate --allow-root
+else
+    echo "WordPress is already installed. Skipping installation."
 fi
 
-# ---------------------------
-# Astraテーマ＆子テーマ
-# ---------------------------
+# Astra テーマインストール＆子テーマ作成
 if ! wp theme is-installed astra --allow-root; then
     wp theme install astra --activate --allow-root
 fi
 
-CHILD_THEME_NAME="astra-child"
-if ! wp theme is-installed $CHILD_THEME_NAME --allow-root; then
+CHILD_THEME_DIR=$(wp theme path astra-child --allow-root 2>/dev/null || echo "")
+if [ -z "$CHILD_THEME_DIR" ]; then
     echo "Creating Astra child theme..."
-    mkdir -p wp-content/themes/$CHILD_THEME_NAME
-    cat > wp-content/themes/$CHILD_THEME_NAME/style.css <<EOL
-/*
-Theme Name: Astra Child
-Template: astra
-Text Domain: astra-child
-*/
-EOL
-    echo "@import url('../astra/style.css');" >> wp-content/themes/$CHILD_THEME_NAME/style.css
-    wp theme activate $CHILD_THEME_NAME --allow-root
+    wp scaffold child-theme astra-child --parent_theme=astra --activate --allow-root
+else
+    echo "Astra child theme already exists. Activating..."
+    wp theme activate astra-child --allow-root
 fi
 
-# ---------------------------
-# Elementorプラグイン
-# ---------------------------
+# Elementor プラグインインストール＆有効化
 if ! wp plugin is-installed elementor --allow-root; then
     wp plugin install elementor --activate --allow-root
 fi
 
-# ---------------------------
 # 固定ページ作成
-# ---------------------------
 PAGES=("Home" "Blog")
 for PAGE in "${PAGES[@]}"; do
     if ! wp post list --post_type=page --field=post_title | grep -qx "$PAGE"; then
@@ -81,18 +63,14 @@ for PAGE in "${PAGES[@]}"; do
     fi
 done
 
-# ---------------------------
 # フロントページ設定
-# ---------------------------
 HOME_ID=$(wp post list --post_type=page --field=ID --title="Home" --allow-root)
 BLOG_ID=$(wp post list --post_type=page --field=ID --title="Blog" --allow-root)
 wp option update show_on_front 'page' --allow-root
 wp option update page_on_front $HOME_ID --allow-root
 wp option update page_for_posts $BLOG_ID --allow-root
 
-# ---------------------------
 # パーマリンクを「投稿名」に設定
-# ---------------------------
 wp rewrite structure '/%postname%/' --hard --allow-root
 
 echo "WordPress initialized successfully!"

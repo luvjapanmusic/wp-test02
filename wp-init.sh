@@ -4,7 +4,7 @@ set -e
 # Docker コンテナ名
 CONTAINER_NAME="wordpress"
 
-# Codespaces URL の自動取得
+# Codespaces URL の自動取得（内部アクセス用）
 if [ -n "$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN" ]; then
     WP_URL="http://localhost:8000"
 else
@@ -18,13 +18,23 @@ wp() {
     docker compose exec $CONTAINER_NAME wp "$@"
 }
 
-# WordPress が未インストールなら初回インストールは手動で行う
+# WordPress が未インストールなら自動インストール
 if ! wp core is-installed --allow-root >/dev/null 2>&1; then
-    echo "WordPress がインストールされていません。先に wp core install を実行してください。"
-    exit 1
+    echo "WordPress をインストール中..."
+    wp core download --locale=ja --allow-root
+    wp config create --dbname=wordpress --dbuser=root --dbpass=root --dbhost=db --allow-root
+    wp db create --allow-root
+    wp core install \
+        --url="$WP_URL" \
+        --title="My Site" \
+        --admin_user="admin" \
+        --admin_password="password" \
+        --admin_email="admin@example.com" \
+        --skip-email \
+        --allow-root
 fi
 
-# 言語を日本語に設定
+# 言語を日本語に設定（再インストール時も安全）
 wp language core install ja --activate --allow-root
 
 # 固定ページ作成

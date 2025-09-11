@@ -4,61 +4,66 @@ set -e
 # Docker コンテナ名
 CONTAINER_NAME="wordpress"
 
-# Codespaces URL の自動取得
+# Codespaces URL の自動取得（ブラウザ用）
 if [ -n "$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN" ]; then
-    WP_URL="https://$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN"
+    CODESPACES_URL="https://$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN"
 else
-    WP_URL="http://localhost"
+    CODESPACES_URL="http://localhost:8000"
 fi
 
-echo "Using URL: $WP_URL"
+echo "Browser URL: $CODESPACES_URL"
 
 # WordPress コンテナに入って wp コマンドを実行する関数
 wp() {
     docker compose exec $CONTAINER_NAME wp "$@"
 }
 
+# HTTP_HOST 未定義を回避する wp-config.php の追加設定
+docker compose exec $CONTAINER_NAME bash -c "grep -q 'HTTP_HOST' /var/www/html/wp-config.php || echo \"if (!isset(\$_SERVER['HTTP_HOST'])) { \$_SERVER['HTTP_HOST'] = parse_url('$CODESPACES_URL', PHP_URL_HOST); }\" >> /var/www/html/wp-config.php"
+
 # WordPress が未インストールなら自動インストール
 if ! wp core is-installed --allow-root; then
     echo "Installing WordPress..."
+    wp core download --locale=ja --force --allow-root
+    wp config create \
+        --dbname=wordpress \
+        --dbuser=wordpress \
+        --dbpass=wordpress \
+        --dbhost=db \
+        --locale=ja \
+        --allow-root
     wp core install \
-        --url="$WP_URL" \
+        --url="http://localhost:8000" \
         --title="My Site" \
         --admin_user="admin" \
         --admin_password="password" \
         --admin_email="admin@example.com" \
         --skip-email \
         --allow-root
-
-    # 日本語に設定
-    wp language core install ja --activate --allow-root
-else
-    echo "WordPress is already installed. Skipping installation."
 fi
 
-# Astra テーマインストール＆子テーマ作成
-if ! wp theme is-installed astra --allow-root; then
+# Astra テーマと子テーマ
+ASTRA_LATEST=$(wp theme list --field=name --status=inactive | grep -i astra || echo "")
+if [ -z "$ASTRA_LATEST" ]; then
+    echo "Installing Astra theme..."
     wp theme install astra --activate --allow-root
 fi
 
-CHILD_THEME_DIR=$(wp theme path astra-child --allow-root 2>/dev/null || echo "")
-if [ -z "$CHILD_THEME_DIR" ]; then
+if [ ! -d "/var/www/html/wp-content/themes/astra-child" ]; then
     echo "Creating Astra child theme..."
-    wp scaffold child-theme astra-child --parent_theme=astra --activate --allow-root
-else
-    echo "Astra child theme already exists. Activating..."
-    wp theme activate astra-child --allow-root
+    wp scaffold child-theme astra-child --theme=Astra --activate --allow-root
 fi
 
-# Elementor プラグインインストール＆有効化
+# Elementor プラグインインストール
 if ! wp plugin is-installed elementor --allow-root; then
+    echo "Installing Elementor plugin..."
     wp plugin install elementor --activate --allow-root
 fi
 
 # 固定ページ作成
 PAGES=("Home" "Blog")
 for PAGE in "${PAGES[@]}"; do
-    if ! wp post list --post_type=page --field=post_title | grep -qx "$PAGE"; then
+    if ! wp post list --post_type=page --field=post_title --allow-root | grep -qx "$PAGE"; then
         wp post create --post_type=page --post_title="$PAGE" --post_status=publish --allow-root
     fi
 done
@@ -74,3 +79,4 @@ wp option update page_for_posts $BLOG_ID --allow-root
 wp rewrite structure '/%postname%/' --hard --allow-root
 
 echo "WordPress initialized successfully!"
+echo "Access your site at: $CODESPACES_URL"

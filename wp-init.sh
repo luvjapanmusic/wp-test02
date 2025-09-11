@@ -4,60 +4,40 @@ set -e
 # Docker コンテナ名
 CONTAINER_NAME="wordpress"
 
-# Codespaces URL の自動取得（ブラウザ用）
-if [ -n "$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN" ]; then
-    CODESPACES_URL="https://$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN"
-else
-    CODESPACES_URL="http://localhost:8000"
-fi
+# WordPress URL（Codespaces 内部アクセス用）
+WP_URL="http://localhost:8000"
 
-echo "Browser URL: $CODESPACES_URL"
+echo "Using internal URL: $WP_URL"
 
 # WordPress コンテナに入って wp コマンドを実行する関数
 wp() {
     docker compose exec $CONTAINER_NAME wp "$@"
 }
 
-# HTTP_HOST 未定義を回避する wp-config.php の追加設定
-docker compose exec $CONTAINER_NAME bash -c "grep -q 'HTTP_HOST' /var/www/html/wp-config.php || echo \"if (!isset(\$_SERVER['HTTP_HOST'])) { \$_SERVER['HTTP_HOST'] = parse_url('$CODESPACES_URL', PHP_URL_HOST); }\" >> /var/www/html/wp-config.php"
+# wp-config.php がない場合のみ作成
+if [ ! -f ./wordpress/wp-config.php ]; then
+    echo "Creating wp-config.php..."
+    wp config create \
+        --dbname=wordpress \
+        --dbuser=root \
+        --dbpass=root \
+        --dbhost=db \
+        --locale=ja \
+        --skip-check \
+        --allow-root
+fi
 
 # WordPress が未インストールなら自動インストール
 if ! wp core is-installed --allow-root; then
     echo "Installing WordPress..."
-    wp core download --locale=ja --force --allow-root
-    wp config create \
-        --dbname=wordpress \
-        --dbuser=wordpress \
-        --dbpass=wordpress \
-        --dbhost=db \
-        --locale=ja \
-        --allow-root
     wp core install \
-        --url="http://localhost:8000" \
+        --url="$WP_URL" \
         --title="My Site" \
         --admin_user="admin" \
         --admin_password="password" \
         --admin_email="admin@example.com" \
         --skip-email \
         --allow-root
-fi
-
-# Astra テーマと子テーマ
-ASTRA_LATEST=$(wp theme list --field=name --status=inactive | grep -i astra || echo "")
-if [ -z "$ASTRA_LATEST" ]; then
-    echo "Installing Astra theme..."
-    wp theme install astra --activate --allow-root
-fi
-
-if [ ! -d "/var/www/html/wp-content/themes/astra-child" ]; then
-    echo "Creating Astra child theme..."
-    wp scaffold child-theme astra-child --theme=Astra --activate --allow-root
-fi
-
-# Elementor プラグインインストール
-if ! wp plugin is-installed elementor --allow-root; then
-    echo "Installing Elementor plugin..."
-    wp plugin install elementor --activate --allow-root
 fi
 
 # 固定ページ作成
@@ -78,5 +58,22 @@ wp option update page_for_posts $BLOG_ID --allow-root
 # パーマリンクを「投稿名」に設定
 wp rewrite structure '/%postname%/' --hard --allow-root
 
+# Astra テーマと子テーマ作成
+if ! wp theme is-installed astra --allow-root; then
+    echo "Installing Astra theme..."
+    wp theme install astra --activate --allow-root
+fi
+
+if ! wp theme is-installed astra-child --allow-root; then
+    echo "Creating Astra child theme..."
+    wp theme generate-child astra astra-child --activate --allow-root
+fi
+
+# Elementor プラグインを最新バージョンでインストール
+if ! wp plugin is-installed elementor --allow-root; then
+    echo "Installing Elementor plugin..."
+    wp plugin install elementor --activate --allow-root
+fi
+
 echo "WordPress initialized successfully!"
-echo "Access your site at: $CODESPACES_URL"
+echo "Browser URL: https://<your-codespaces-url>"

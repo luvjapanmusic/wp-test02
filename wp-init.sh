@@ -1,33 +1,52 @@
 #!/bin/bash
 set -e
 
-# DB 接続待機
-echo "Waiting for database..."
-until wp db check >/dev/null 2>&1; do
-  sleep 3
-done
+# Docker コンテナ名
+CONTAINER_NAME="wordpress"
+
+# Codespaces の自動発行 URL
+if [ -n "$CODESPACE_NAME" ]; then
+    WP_URL="https://${CODESPACE_NAME}-8000.app.github.dev/"
+else
+    WP_URL="http://localhost"
+fi
+
+echo "Using URL: $WP_URL"
+
+# WordPress コンテナに入って実行する関数
+wp() {
+    docker compose exec $CONTAINER_NAME wp "$@"
+}
 
 # WordPress が未インストールなら自動インストール
-if ! wp core is-installed >/dev/null 2>&1; then
-  wp core install \
-    --url="https://automatic-waffle-4pgpq9qrxw3jv4p-8000.app.github.dev" \
-    --title="My WP Site" \
-    --admin_user="admin" \
-    --admin_password="admin123" \
-    --admin_email="admin@example.com"
+if ! wp core is-installed --allow-root; then
+    echo "Installing WordPress..."
+    wp core install \
+        --url="$WP_URL" \
+        --title="My Site" \
+        --admin_user="admin" \
+        --admin_password="password" \
+        --admin_email="admin@example.com" \
+        --skip-email \
+        --allow-root
 fi
 
 # 固定ページ作成
-HOME_PAGE_ID=$(wp post create --post_type=page --post_title='Home' --post_status=publish --porcelain)
-BLOG_PAGE_ID=$(wp post create --post_type=page --post_title='Blog' --post_status=publish --porcelain)
+PAGES=("Home" "Blog")
+for PAGE in "${PAGES[@]}"; do
+    if ! wp post list --post_type=page --field=post_title | grep -qx "$PAGE"; then
+        wp post create --post_type=page --post_title="$PAGE" --post_status=publish --allow-root
+    fi
+done
 
 # フロントページ設定
-wp option update show_on_front 'page'
-wp option update page_on_front "$HOME_PAGE_ID"
-wp option update page_for_posts "$BLOG_PAGE_ID"
+HOME_ID=$(wp post list --post_type=page --field=ID --title="Home" --allow-root)
+BLOG_ID=$(wp post list --post_type=page --field=ID --title="Blog" --allow-root)
+wp option update show_on_front 'page' --allow-root
+wp option update page_on_front $HOME_ID --allow-root
+wp option update page_for_posts $BLOG_ID --allow-root
 
 # パーマリンクを「投稿名」に設定
-wp rewrite structure '/%postname%/' --hard
-wp rewrite flush --hard
+wp rewrite structure '/%postname%/' --hard --allow-root
 
-echo "WordPress initial setup completed!"
+echo "WordPress initialized successfully!"

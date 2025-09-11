@@ -4,8 +4,6 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: wp
-    ports:
-      - "8080:80"
     environment:
       WORDPRESS_DB_HOST: wp_db:3306
       WORDPRESS_DB_USER: wp
@@ -19,6 +17,8 @@ services:
         if (isset($$_SERVER['HTTP_X_FORWARDED_HOST'])) {
           $$_SERVER['HTTP_HOST'] = $$_SERVER['HTTP_X_FORWARDED_HOST'];
         }
+    ports:
+      - "8000:80" # ローカル 8000 ポートでアクセス可能
     volumes:
       - ./wordpress:/var/www/html
       - ./php.ini:/usr/local/etc/php/conf.d/custom.ini:ro

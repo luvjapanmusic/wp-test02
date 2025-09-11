@@ -7,36 +7,25 @@ CONTAINER_NAME="wordpress"
 # Codespaces URL の自動取得
 if [ -n "$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN" ]; then
     WP_URL="http://localhost:8000"
-    echo "Using internal URL: $WP_URL"
 else
     WP_URL="http://localhost"
 fi
 
-# WordPress コンテナに入って wp コマンドを実行する関数
+echo "Using internal URL: $WP_URL"
+
+# WordPress コンテナ内で wp コマンドを実行する関数
 wp() {
     docker compose exec $CONTAINER_NAME wp "$@"
 }
 
-# WordPress が未インストールなら自動インストール
-if ! wp core is-installed --allow-root; then
-    echo "Installing WordPress..."
-    wp core download --locale=ja --allow-root
-    wp config create \
-        --dbname=wordpress \
-        --dbuser=root \
-        --dbpass=root \
-        --dbhost=db \
-        --allow-root
-    wp db create --allow-root
-    wp core install \
-        --url="$WP_URL" \
-        --title="My Site" \
-        --admin_user="admin" \
-        --admin_password="password" \
-        --admin_email="admin@example.com" \
-        --skip-email \
-        --allow-root
+# WordPress が未インストールなら初回インストールは手動で行う
+if ! wp core is-installed --allow-root >/dev/null 2>&1; then
+    echo "WordPress がインストールされていません。先に wp core install を実行してください。"
+    exit 1
 fi
+
+# 言語を日本語に設定
+wp language core install ja --activate --allow-root
 
 # 固定ページ作成
 PAGES=("Home" "Blog")
@@ -55,40 +44,29 @@ wp option update page_for_posts $BLOG_ID --allow-root
 
 # パーマリンクを「投稿名」に設定
 wp rewrite structure '/%postname%/' --hard --allow-root
+wp rewrite flush --hard --allow-root
 
-# Astraテーマインストールと有効化
+# Astraテーマインストール & 有効化
 if ! wp theme is-installed astra --allow-root; then
-    echo "Installing Astra theme..."
     wp theme install astra --activate --allow-root
+else
+    wp theme activate astra --allow-root
 fi
 
-# Astra 子テーマ作成
-CHILD_THEME_DIR="./wordpress/wp-content/themes/astra-child"
+# Astra子テーマ作成 (既存ならスキップ)
+CHILD_THEME_DIR="/var/www/html/wp-content/themes/astra-child"
 if [ ! -d "$CHILD_THEME_DIR" ]; then
-    echo "Creating Astra child theme..."
-    mkdir "$CHILD_THEME_DIR"
-    cat > "$CHILD_THEME_DIR/style.css" <<EOL
-/*
-Theme Name: Astra Child
-Template: astra
-Text Domain: astra-child
-*/
-EOL
-
-    cat > "$CHILD_THEME_DIR/functions.php" <<'EOL'
-<?php
-add_action( 'wp_enqueue_scripts', function() {
-    wp_enqueue_style( 'astra-parent-style', get_template_directory_uri() . '/style.css' );
-} );
-EOL
-
-    wp theme activate astra-child --allow-root
+    wp scaffold child-theme astra-child --parent_theme=astra --activate --allow-root
+else
+    echo "Astra 子テーマはすでに存在します。"
 fi
 
-# Elementor 最新版インストールと有効化
+# Elementorプラグインインストール & 有効化
 if ! wp plugin is-installed elementor --allow-root; then
-    echo "Installing Elementor plugin..."
     wp plugin install elementor --activate --allow-root
+else
+    wp plugin activate elementor --allow-root
 fi
 
-echo "WordPress initialized successfully!"
+echo "WordPress 初期セットアップが完了しました！"
+echo "サイトURL: $WP_URL"

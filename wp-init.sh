@@ -1,38 +1,33 @@
 #!/bin/bash
 set -e
 
-WP_PATH=/var/www/html
+# DB 接続待機
+echo "Waiting for database..."
+until wp db check >/dev/null 2>&1; do
+  sleep 3
+done
 
-# WordPress がまだ存在しない場合にダウンロード
-if [ ! -f "$WP_PATH/wp-config.php" ]; then
-    echo "Downloading WordPress..."
-    wp core download --path="$WP_PATH"
+# WordPress が未インストールなら自動インストール
+if ! wp core is-installed >/dev/null 2>&1; then
+  wp core install \
+    --url="https://automatic-waffle-4pgpq9qrxw3jv4p-8000.app.github.dev" \
+    --title="My WP Site" \
+    --admin_user="admin" \
+    --admin_password="admin123" \
+    --admin_email="admin@example.com"
 fi
 
-# WordPress のセットアップ（DB接続情報は environment で自動設定）
-if ! wp core is-installed --path="$WP_PATH"; then
-    echo "Installing WordPress..."
-    wp core install \
-      --url="http://localhost" \
-      --title="My WordPress Site" \
-      --admin_user="admin" \
-      --admin_password="password" \
-      --admin_email="admin@example.com" \
-      --path="$WP_PATH"
-fi
+# 固定ページ作成
+HOME_PAGE_ID=$(wp post create --post_type=page --post_title='Home' --post_status=publish --porcelain)
+BLOG_PAGE_ID=$(wp post create --post_type=page --post_title='Blog' --post_status=publish --porcelain)
 
-# Home と Blog ページ作成
-if [ $(wp post list --post_type=page --format=ids --path="$WP_PATH" | wc -l) -eq 0 ]; then
-    echo "Creating Home and Blog pages..."
-    HOME_ID=$(wp post create --post_type=page --post_title=Home --post_status=publish --post_name=home --porcelain --path="$WP_PATH")
-    BLOG_ID=$(wp post create --post_type=page --post_title=Blog --post_status=publish --post_name=blog --porcelain --path="$WP_PATH")
-    wp option update show_on_front page --path="$WP_PATH"
-    wp option update page_on_front "$HOME_ID" --path="$WP_PATH"
-    wp option update page_for_posts "$BLOG_ID" --path="$WP_PATH"
-fi
+# フロントページ設定
+wp option update show_on_front 'page'
+wp option update page_on_front "$HOME_PAGE_ID"
+wp option update page_for_posts "$BLOG_PAGE_ID"
 
 # パーマリンクを「投稿名」に設定
-wp rewrite structure '/%postname%/' --hard --path="$WP_PATH"
+wp rewrite structure '/%postname%/' --hard
+wp rewrite flush --hard
 
-echo "WordPress initialization completed."
-exec "$@"
+echo "WordPress initial setup completed!"

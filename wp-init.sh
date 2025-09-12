@@ -18,16 +18,9 @@ wp() {
 }
 
 # WordPress が未インストールならインストール
+# WordPress が未インストールなら自動インストール
 if ! wp core is-installed --allow-root; then
     echo "Installing WordPress..."
-    wp core download --locale=ja --allow-root
-    wp config create \
-        --dbname=wordpress \
-        --dbuser=root \
-        --dbpass=root \
-        --dbhost=db \
-        --allow-root
-    wp db create --allow-root
     wp core install \
         --url="$WP_URL" \
         --title="My Site" \
@@ -88,3 +81,4 @@ wp language plugin list --allow-root | awk '/installed/ {print $1}' | grep -v ja
 wp language theme list --allow-root | awk '/installed/ {print $1}' | grep -v ja | xargs -r -n1 wp language theme uninstall --allow-root
 
 echo "WordPress, Astra child theme, and Elementor are ready! 日本語でセットアップ完了しました！"
+

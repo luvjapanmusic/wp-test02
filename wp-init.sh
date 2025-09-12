@@ -54,20 +54,7 @@ if ! wp theme is-installed astra --allow-root; then
 fi
 
 # Astra 子テーマ自動作成
-CHILD_THEME_DIR=$(wp theme path --allow-root)/astra-child
-if [ ! -d "$CHILD_THEME_DIR" ]; then
-    echo "Creating Astra child theme..."
-    mkdir -p "$CHILD_THEME_DIR"
-    cat <<EOT > "$CHILD_THEME_DIR/style.css"
-/*
-Theme Name: Astra Child
-Template: astra
-Text Domain: astra-child
-*/
-EOT
-    touch "$CHILD_THEME_DIR/functions.php"
-    wp theme activate astra-child --allow-root
-fi
+# 削除中
 
 # Elementor プラグインインストール＆有効化
 if ! wp plugin is-installed elementor --allow-root; then

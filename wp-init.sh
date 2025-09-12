@@ -5,22 +5,29 @@ set -e
 CONTAINER_NAME="wordpress"
 
 # Codespaces URL の自動取得
-if [ -n "$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN" ]; then
-    WP_URL="https://$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN"
+if [ -n "$CODESPACE_NAME" ]; then
+    WP_URL="https://${CODESPACE_NAME}-8000.app.github.dev/"
 else
     WP_URL="http://localhost"
 fi
-
 echo "Using URL: $WP_URL"
 
-# WordPress コンテナに入って wp コマンドを実行する関数
+# WordPress CLI 実行関数
 wp() {
     docker compose exec $CONTAINER_NAME wp "$@"
 }
 
-# WordPress が未インストールなら自動インストール
+# WordPress が未インストールならインストール
 if ! wp core is-installed --allow-root; then
     echo "Installing WordPress..."
+    wp core download --locale=ja --allow-root
+    wp config create \
+        --dbname=wordpress \
+        --dbuser=root \
+        --dbpass=root \
+        --dbhost=db \
+        --allow-root
+    wp db create --allow-root
     wp core install \
         --url="$WP_URL" \
         --title="My Site" \
@@ -34,7 +41,7 @@ fi
 # 固定ページ作成
 PAGES=("Home" "Blog")
 for PAGE in "${PAGES[@]}"; do
-    if ! wp post list --post_type=page --field=post_title | grep -qx "$PAGE"; then
+    if ! wp post list --post_type=page --field=post_title --allow-root | grep -qx "$PAGE"; then
         wp post create --post_type=page --post_title="$PAGE" --post_status=publish --allow-root
     fi
 done
@@ -49,4 +56,35 @@ wp option update page_for_posts $BLOG_ID --allow-root
 # パーマリンクを「投稿名」に設定
 wp rewrite structure '/%postname%/' --hard --allow-root
 
-echo "WordPress initialized successfully!"
+# Astraテーマインストール＆有効化
+if ! wp theme is-installed astra --allow-root; then
+    wp theme install astra --activate --allow-root
+fi
+
+# Astra 子テーマ自動作成
+CHILD_THEME_DIR=$(wp theme path --allow-root)/astra-child
+if [ ! -d "$CHILD_THEME_DIR" ]; then
+    echo "Creating Astra child theme..."
+    mkdir -p "$CHILD_THEME_DIR"
+    cat <<EOT > "$CHILD_THEME_DIR/style.css"
+/*
+Theme Name: Astra Child
+Template: astra
+Text Domain: astra-child
+*/
+EOT
+    touch "$CHILD_THEME_DIR/functions.php"
+    wp theme activate astra-child --allow-root
+fi
+
+# Elementor プラグインインストール＆有効化
+if ! wp plugin is-installed elementor --allow-root; then
+    wp plugin install elementor --activate --allow-root
+fi
+
+# 不要な他言語ファイル削除（ja以外）
+wp language core list --allow-root | awk '/installed/ {print $1}' | grep -v ja | xargs -r -n1 wp language core uninstall --allow-root
+wp language plugin list --allow-root | awk '/installed/ {print $1}' | grep -v ja | xargs -r -n1 wp language plugin uninstall --allow-root
+wp language theme list --allow-root | awk '/installed/ {print $1}' | grep -v ja | xargs -r -n1 wp language theme uninstall --allow-root
+
+echo "WordPress, Astra child theme, and Elementor are ready! 日本語でセットアップ完了しました！"

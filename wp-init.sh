@@ -4,16 +4,16 @@ set -e
 # Docker コンテナ名
 CONTAINER_NAME="wordpress"
 
-# Codespaces の自動発行 URL
-if [ -n "$CODESPACE_NAME" ]; then
-    WP_URL="https://${CODESPACE_NAME}-8000.app.github.dev/"
+# Codespaces URL の自動取得
+if [ -n "$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN" ]; then
+    WP_URL="https://$GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN"
 else
     WP_URL="http://localhost"
 fi
 
 echo "Using URL: $WP_URL"
 
-# WordPress コンテナに入って実行する関数
+# WordPress コンテナに入って wp コマンドを実行する関数
 wp() {
     docker compose exec $CONTAINER_NAME wp "$@"
 }

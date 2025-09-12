@@ -17,7 +17,6 @@ wp() {
     docker compose exec $CONTAINER_NAME wp "$@"
 }
 
-# WordPress が未インストールならインストール
 # WordPress が未インストールなら自動インストール
 if ! wp core is-installed --allow-root; then
     echo "Installing WordPress..."

@@ -23,8 +23,8 @@ if ! wp core is-installed --allow-root; then
     wp core install \
         --url="$WP_URL" \
         --title="My Site" \
-        --admin_user="admin" \
-        --admin_password="password" \
+        --admin_user="test" \
+        --admin_password="test" \
         --admin_email="admin@example.com" \
         --skip-email \
         --allow-root

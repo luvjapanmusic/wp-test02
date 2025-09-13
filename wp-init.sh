@@ -7,8 +7,6 @@ CONTAINER_NAME="wordpress"
 # Codespaces URL の自動取得
 if [ -n "$CODESPACE_NAME" ]; then
     WP_URL="https://${CODESPACE_NAME}-8000.app.github.dev/"
-else
-    WP_URL="http://localhost"
 fi
 echo "Using URL: $WP_URL"
 

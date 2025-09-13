@@ -1,7 +1,8 @@
 FROM wordpress:latest
 
-# wp-cli をインストール
+# wp-cli を導入
 RUN curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar \
+    && php wp-cli.phar --allow-root --version \
     && chmod +x wp-cli.phar \
     && mv wp-cli.phar /usr/local/bin/wp
 

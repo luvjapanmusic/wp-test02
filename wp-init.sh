@@ -46,8 +46,8 @@ find "$WP_PATH" -type f -exec chmod 644 {} \;
 
 echo "Permissions initialized."
 
-# WP-CLI package (language-command) を後から入れる
-wp package install wp-cli/language-command --allow-root || true
+# WP-CLI package (language-command) を後から入れる　うまくいかない
+#wp package install https://github.com/wp-cli/language-command.git --allow-root
 
 # デバックモード有効化
 wp config set WP_DEBUG true --raw --allow-root
@@ -135,7 +135,7 @@ wp plugin update --all --allow-root
 # WordPress翻訳アップデート できてる？
 # 翻訳の更新
 wp core language update --allow-root
-wp plugin language update --all --allow-root || true
+#wp plugin language update --all --allow-root || true
 wp theme language update --all --allow-root || true
 
 # 自動更新無効化

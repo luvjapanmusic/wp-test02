@@ -25,7 +25,8 @@ if ! wp core is-installed --allow-root; then
         --admin_password="test" \
         --admin_email="admin@example.com" \
         --skip-email \
-        --allow-root
+        --allow-root \
+        --path=/var/www/html
 fi
 
 #!/bin/bash

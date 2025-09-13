@@ -29,8 +29,6 @@ if ! wp core is-installed --allow-root; then
         --path=/var/www/html
 fi
 
-#!/bin/bash
-set -e
 
 echo "Initializing WordPress permissions..."
 
@@ -47,6 +45,9 @@ find "$WP_PATH" -type d -exec chmod 755 {} \;
 find "$WP_PATH" -type f -exec chmod 644 {} \;
 
 echo "Permissions initialized."
+
+# WP-CLI package (language-command) を後から入れる
+wp package install wp-cli/language-command --allow-root || true
 
 # デバックモード有効化
 wp config set WP_DEBUG true --raw --allow-root
@@ -107,6 +108,7 @@ else
 fi
 
 # 不要プラグインの削除
+wp plugin delete akismet --allow-root
 wp plugin delete hello.php --allow-root
 
 # WP Multibyte Patch プラグインインストール＆有効化
@@ -131,7 +133,10 @@ wp core update --allow-root
 wp plugin update --all --allow-root
 
 # WordPress翻訳アップデート できてる？
+# 翻訳の更新
 wp core language update --allow-root
+wp plugin language update --all --allow-root || true
+wp theme language update --all --allow-root || true
 
 # 自動更新無効化
 wp config set AUTOMATIC_UPDATER_DISABLED true --raw --allow-root

@@ -28,6 +28,25 @@ if ! wp core is-installed --allow-root; then
         --allow-root
 fi
 
+#!/bin/bash
+set -e
+
+echo "Initializing WordPress permissions..."
+
+# WordPress パス（ホスト側）
+WP_PATH=/workspaces/wp-test02/wordpress
+
+# 所有者を www-data に設定（ホストでは uid/gid が違うので注意）
+sudo chown -R $(id -u):$(id -g) "$WP_PATH"
+
+# ディレクトリのパーミッション
+find "$WP_PATH" -type d -exec chmod 755 {} \;
+
+# ファイルのパーミッション
+find "$WP_PATH" -type f -exec chmod 644 {} \;
+
+echo "Permissions initialized."
+
 # デバックモード有効化
 wp config set WP_DEBUG true --raw --allow-root
 # 日本語化
@@ -99,10 +118,10 @@ if ! wp plugin is-installed elementor --allow-root; then
     wp plugin install elementor --activate --allow-root
 fi
 
-# 不要な他言語ファイル削除（ja以外）
-wp language core list --allow-root | awk '/installed/ {print $1}' | grep -v ja | xargs -r -n1 wp language core uninstall --allow-root
-wp language plugin list --allow-root | awk '/installed/ {print $1}' | grep -v ja | xargs -r -n1 wp language plugin uninstall --allow-root
-wp language theme list --allow-root | awk '/installed/ {print $1}' | grep -v ja | xargs -r -n1 wp language theme uninstall --allow-root
+# 不要な他言語ファイル削除（ja以外）機能してない
+#wp language core list --allow-root | awk '/installed/ {print $1}' | grep -v ja | xargs -r -n1 wp language core uninstall --allow-root
+#wp language plugin list --allow-root | awk '/installed/ {print $1}' | grep -v ja | xargs -r -n1 wp language plugin uninstall --allow-root
+#wp language theme list --allow-root | awk '/installed/ {print $1}' | grep -v ja | xargs -r -n1 wp language theme uninstall --allow-root
 
 # WordPress本体アップデート
 wp core update --allow-root
@@ -110,7 +129,7 @@ wp core update --allow-root
 # WordPressプラグインアップデート
 wp plugin update --all --allow-root
 
-# WordPress翻訳アップデート
+# WordPress翻訳アップデート できてる？
 wp core language update --allow-root
 
 # 自動更新無効化
@@ -119,4 +138,3 @@ wp config set AUTOMATIC_UPDATER_DISABLED true --raw --allow-root
 
 
 echo "WordPress, Astra child theme, and Elementor are ready! 日本語でセットアップ完了しました！"
-

@@ -136,7 +136,7 @@ wp plugin update --all --allow-root
 # 翻訳の更新
 wp core language update --allow-root
 #wp plugin language update --all --allow-root || true
-wp theme language update --all --allow-root || true
+#wp theme language update --all --allow-root || true
 
 # 自動更新無効化
 wp config set AUTOMATIC_UPDATER_DISABLED true --raw --allow-root
